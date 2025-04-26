@@ -8,6 +8,8 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import "./App.css";
 import Confetti from "react-confetti";
 import { useWindowSize } from "@react-hook/window-size";
+import TaskDescription from "./TaskDescription"; // Import TaskDescription component
+import Tesseract from "tesseract.js";  // Import Tesseract.js for image recognition
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -17,6 +19,8 @@ const App = () => {
   const [showFirework, setShowFirework] = useState(false);
   const [width, height] = useWindowSize();
   const [playMusic, setPlayMusic] = useState(false);
+  const [scannedText, setScannedText] = useState(""); // Store scanned text from image
+  const [isImageVerified, setIsImageVerified] = useState(false); // Store image verification status
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -38,7 +42,11 @@ const App = () => {
 
   const increasePoints = () => {
     if (images.length === 3 && video) {
-      setPoints(points + 5);
+      if (isImageVerified) {
+        setPoints(points + 5);
+      } else {
+        alert("Hình ảnh chưa được xác minh. Vui lòng tải lại ảnh hoặc video.");
+      }
     } else {
       alert("Vui lòng chụp đủ 3 bức ảnh và 1 video trước khi hoàn thành tác vụ.");
     }
@@ -52,11 +60,31 @@ const App = () => {
   const handleCapture = (capturedImage) => {
     if (images.length < 3) {
       setImages([...images, capturedImage]);
+      verifyImage(capturedImage); // Verify image when captured
     }
   };
 
   const handleVideoCapture = (capturedVideo) => {
     setVideo(capturedVideo);
+  };
+
+  const verifyImage = (image) => {
+    Tesseract.recognize(
+      image,
+      "eng",
+      {
+        logger: (m) => console.log(m),
+      }
+    ).then(({ data: { text } }) => {
+      setScannedText(text);
+      // Check if the scanned text contains relevant information to confirm the image is related to cleanup
+      if (text.toLowerCase().includes("rác") || text.toLowerCase().includes("dọn dẹp")) {
+        setIsImageVerified(true);
+      } else {
+        setIsImageVerified(false);
+        alert("Hình ảnh không phù hợp. Vui lòng tải lại ảnh dọn rác.");
+      }
+    });
   };
 
   return (
@@ -152,6 +180,8 @@ const App = () => {
               <Map />
               <Camera onCapture={handleCapture} onVideoCapture={handleVideoCapture} />
             </div>
+            {/* Thêm phần mô tả tác vụ vào đây */}
+            <TaskDescription />
             <button
               onClick={increasePoints}
               style={{
